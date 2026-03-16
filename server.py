@@ -101,4 +101,7 @@ def analyze_supply_chain(company_name: str) -> str:
 
 
 if __name__ == "__main__":
-    mcp.run()
+    # Get the port Render assigns us, default to 8000 for local testing
+    port = int(os.environ.get("PORT", 8000))
+    # Host 0.0.0.0 tells the server to accept connections from the outside internet
+    mcp.run(transport="sse", host="0.0.0.0", port=port)
