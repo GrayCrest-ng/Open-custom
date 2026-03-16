@@ -101,5 +101,7 @@ def analyze_supply_chain(company_name: str) -> str:
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    mcp.run(transport="sse", host="0.0.0.0", port=port)
+
+    os.environ["HOST"] = "0.0.0.0"
+    
+    mcp.run(transport="sse")
