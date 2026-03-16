@@ -21,12 +21,22 @@ class ShipmentRecord(BaseModel):
     port_of_lading: str
     arrival_date: str
 
+
+class ShipmentDataResponse(BaseModel):
+    result: List[ShipmentRecord]
+    error: str | None = None
+
+
 @mcp.tool()
-def get_raw_shipment_data(company_name: str) -> List[ShipmentRecord]:
+def get_raw_shipment_data(company_name: str) -> ShipmentDataResponse:
     """
     Returns normalized, raw Bill of Lading JSON data for a specific company.
-    Uses fuzzy matching to find the closest company name.
+    Uses fuzzy matching to find the closest company name and includes an error
+    field when data cannot be retrieved.
     """
+    if not db_url:
+        return ShipmentDataResponse(result=[], error="DATABASE_URL is not configured.")
+
     try:
         conn = psycopg2.connect(db_url)
         cur = conn.cursor()
@@ -46,7 +56,6 @@ def get_raw_shipment_data(company_name: str) -> List[ShipmentRecord]:
 
         results = []
         for row in rows:
-            
             results.append(ShipmentRecord(
                 importer_entity=str(row[0]),
                 supplier_entity=str(row[1]),
@@ -56,11 +65,11 @@ def get_raw_shipment_data(company_name: str) -> List[ShipmentRecord]:
                 port_of_lading=str(row[5]),
                 arrival_date=str(row[6]) 
             ))
-        
-        return results
+
+        return ShipmentDataResponse(result=results)
 
     except Exception as e:
-        raise RuntimeError(f"Database error: {str(e)}")
+        return ShipmentDataResponse(result=[], error=f"Database error: {str(e).strip()}")
 
 
 @mcp.tool()
@@ -70,12 +79,14 @@ def analyze_supply_chain(company_name: str) -> str:
     on a competitor's manufacturers, total shipment volume, and estimated value.
     """
     try:
-        shipments = get_raw_shipment_data(company_name)
-        
+        shipment_response = get_raw_shipment_data(company_name)
+        if shipment_response.error:
+            return f"Error analyzing supply chain: {shipment_response.error}"
+
+        shipments = shipment_response.result
         if not shipments:
             return f"No supply chain data found for {company_name}."
 
-        
         total_weight = sum(s.weight_kg for s in shipments)
         total_value = sum(s.estimated_value_usd for s in shipments)
         
