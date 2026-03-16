@@ -27,6 +27,11 @@ class ShipmentDataResponse(BaseModel):
     error: str | None = None
 
 
+class SupplyChainAnalysisResponse(BaseModel):
+    result: str
+    error: str | None = None
+
+
 @mcp.tool()
 def get_raw_shipment_data(company_name: str) -> ShipmentDataResponse:
     """
@@ -73,19 +78,25 @@ def get_raw_shipment_data(company_name: str) -> ShipmentDataResponse:
 
 
 @mcp.tool()
-def analyze_supply_chain(company_name: str) -> str:
+def analyze_supply_chain(company_name: str) -> SupplyChainAnalysisResponse:
     """
     Acts as a supply chain analyst. Returns a human-readable intelligence report 
     on a competitor's manufacturers, total shipment volume, and estimated value.
+    Includes an error field when the report cannot be generated.
     """
     try:
         shipment_response = get_raw_shipment_data(company_name)
         if shipment_response.error:
-            return f"Error analyzing supply chain: {shipment_response.error}"
+            return SupplyChainAnalysisResponse(
+                result="",
+                error=f"Error analyzing supply chain: {shipment_response.error}",
+            )
 
         shipments = shipment_response.result
         if not shipments:
-            return f"No supply chain data found for {company_name}."
+            return SupplyChainAnalysisResponse(
+                result=f"No supply chain data found for {company_name}."
+            )
 
         total_weight = sum(s.weight_kg for s in shipments)
         total_value = sum(s.estimated_value_usd for s in shipments)
@@ -102,11 +113,14 @@ def analyze_supply_chain(company_name: str) -> str:
             f"Analysis: {company_name.upper()} relies heavily on {top_supplier} for its manufacturing. "
             f"Agent, you can use the 'get_raw_shipment_data' tool if you need the exact arrival dates and port locations."
         )
-        
-        return report
+
+        return SupplyChainAnalysisResponse(result=report)
 
     except Exception as e:
-        return f"Error analyzing supply chain: {str(e)}"
+        return SupplyChainAnalysisResponse(
+            result="",
+            error=f"Error analyzing supply chain: {str(e).strip()}",
+        )
 
 if __name__ == "__main__":
     mcp.run(transport="sse")
